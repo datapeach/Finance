@@ -206,11 +206,32 @@ function(input, output, session) {
   
   
   # Reactive expression to create dataframe based on reactive values for budget
+  # budget_data <- reactive({
+  #   df <- budget.output(rv$take_home,rv$rent_mort,rv$car_payment, rv$groceries, rv$home_ins,
+  #                       rv$home_maint, rv$car_ins, rv$car_maint, rv$utilities, rv$pets, rv$subscriptions, 
+  #                       rv$dining_out, rv$hobbies, rv$savings,  rv$investing)
+  # })  
+  
   budget_data <- reactive({
-    df <- budget.output(rv$take_home,rv$rent_mort,rv$car_payment, rv$groceries, rv$home_ins,
-                        rv$home_maint, rv$car_ins, rv$car_maint, rv$utilities, rv$subscriptions, 
-                        rv$dining_out, rv$hobbies, rv$savings,  rv$investing)
-  })  
+    budget.output(
+      take_home     = input$take_home,
+      rent_mort     = input$rent_mort,
+      car_payment   = input$car_payment,
+      groceries     = input$groceries,
+      home_ins      = input$home_ins,
+      home_maint    = input$home_maint,
+      car_ins       = input$car_ins,
+      car_maint     = input$car_maint,
+      utilities     = input$utilities,
+      phones        = input$phones,
+      pets          = input$pets,
+      subscriptions = input$subscriptions,
+      dining_out    = input$dining_out,
+      hobbies       = input$hobbies,
+      savings       = input$savings,
+      investing     = input$investing
+    )
+  })
   
   # Budget outputs ----
   # Reactive expression for pie chart data
@@ -222,7 +243,7 @@ function(input, output, session) {
                      cols_vary = "slowest", 
                      names_to = "Type"),
       pieChart2 = budget_data() %>%
-        select(-c('Needs %', 'Wants %', 'Savings/Investing %', 'Needs', 'Wants', 'Savings_Investing', 'Take_Home')) %>%
+        select(-c('Needs %', 'Wants %', 'Savings/Investing %', 'Needs', 'Wants', 'Savings_Investing', 'Take_Home', 'Unallocated %')) %>%
         pivot_longer(everything(), 
                      cols_vary = "slowest", 
                      names_to = "Type")

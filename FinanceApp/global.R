@@ -1,35 +1,32 @@
 # global.R
 
 # Author: Rosie Schmitz
-comparison_date <-as.POSIXct("2024-12-31 00:00:00", format = "%Y-%m-%d %H:%M:%S")
-current_date <- Sys.time()
 
-#Define global variables (Update Yearly)
-if(current_date < comparison_date) {
-  # 2024 limits
-  lim401k <- 23000
-  limrothira <- 7000
-  limhsa_one <- 4150
-  limhsa_two <- 8300 
-} else {
+# Get current calendar year (IRS limits are year-based)
+current_year <- as.integer(format(Sys.Date(), "%Y"))
+
+# Define global contribution limits (update yearly)
+if (current_year <= 2025) {
   # 2025 limits
-  lim401k <- 23500
-  limrothira <- 7000
-  limhsa_one <- 4300
-  limhsa_two <- 8550
-} 
+  lim401k     <- 23500
+  limrothira  <- 7000
+  limhsa_one  <- 4300
+  limhsa_two  <- 8550
+} else {
+  # 2026 limits
+  lim401k     <- 24500
+  limrothira  <- 7500
+  limhsa_one  <- 4400
+  limhsa_two  <- 8750
+}
 
-# Catch up Contributions 
+# Catch-up Contributions
 calculate_limits <- function(age) {
-  lim401k50 <- ifelse(age >= 50, lim401k + 7500, lim401k)
-  limrothira50 <- ifelse(age >= 50, limrothira + 1000, limrothira)
-  limhsaone55 <- ifelse(age >= 55, limhsa_one + 1000, limhsa_one)
-  limhsatwo55 <- ifelse(age >= 55, limhsa_two + 1000, limhsa_two)
-  
   list(
-    lim401k50 = lim401k50,
-    limrothira50 = limrothira50,
-    limhsaone55 = limhsaone55,
-    limhsatwo55 = limhsatwo55
+    lim401k50    = ifelse(age >= 50, lim401k + 7500, lim401k),
+    limrothira50 = ifelse(age >= 50, limrothira + 1000, limrothira),
+    limhsaone55  = ifelse(age >= 55, limhsa_one + 1000, limhsa_one),
+    limhsatwo55  = ifelse(age >= 55, limhsa_two + 1000, limhsa_two)
   )
 }
+

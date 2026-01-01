@@ -183,7 +183,7 @@ shinyUI(
                        numericInput(
                          inputId = "take_home",
                          label = "Total Take Home ($):",
-                         value = 5000,
+                         value = 8719,
                          min = 0,
                          max = 20000,
                          step = 10,
@@ -192,7 +192,7 @@ shinyUI(
                        numericInput(
                          inputId = "rent_mort",
                          label = "Rent/Mortgage ($):",
-                         value = 1300,
+                         value = 2133,
                          min = 0,
                          max = 5000,
                          step = 1,
@@ -201,7 +201,7 @@ shinyUI(
                        numericInput(
                          inputId = "car_payment",
                          label = "Car Payment ($):",
-                         value = 450,
+                         value = 0,
                          min = 0,
                          max = 20000,
                          step = 1,
@@ -210,7 +210,7 @@ shinyUI(
                        numericInput(
                          inputId = "groceries",
                          label = "Groceries ($):",
-                         value = 500,
+                         value = 700,
                          min = 0,
                          max = 10000,
                          step = 0.5,
@@ -219,7 +219,7 @@ shinyUI(
                        numericInput(
                          inputId = "home_ins",
                          label = "Home/Renters Insurance ($):",
-                         value = 100,
+                         value = 98,
                          min = 0,
                          max = 500,
                          step = 5,
@@ -257,7 +257,25 @@ shinyUI(
                        numericInput(
                          inputId = "utilities",
                          label = "Utilities ($):",
-                         value = 130,
+                         value = 145,
+                         min = 0,
+                         max = 1000,
+                         step = 10,
+                         width = NA
+                       ),
+                       numericInput(
+                         inputId = "phones",
+                         label = "Phones ($):",
+                         value = 172,
+                         min = 0,
+                         max = 1000,
+                         step = 10,
+                         width = NA
+                       ),
+                       numericInput(
+                         inputId = "pets",
+                         label = "Pets ($):",
+                         value = 50,
                          min = 0,
                          max = 1000,
                          step = 10,
@@ -266,7 +284,7 @@ shinyUI(
                        numericInput(
                          inputId = "subscriptions",
                          label = "Subscriptions ($):",
-                         value = 150,
+                         value = 39,
                          min = 0,
                          max = 1000,
                          step = 5,
@@ -284,7 +302,7 @@ shinyUI(
                        numericInput(
                          inputId = "hobbies",
                          label = "Hobbies ($):",
-                         value = 200,
+                         value = 500,
                          min = 0,
                          max = 3000,
                          step = 5,
@@ -293,7 +311,7 @@ shinyUI(
                        numericInput(
                          inputId = "savings",
                          label = "Savings ($):",
-                         value = 500,
+                         value = 800,
                          min = 0,
                          max = 10000,
                          step = 10,
@@ -302,7 +320,7 @@ shinyUI(
                        numericInput(
                          inputId = "investing",
                          label = "Investing ($):",
-                         value = 1000,
+                         value = 2350,
                          min = 0,
                          max = 10000,
                          step = 10,
@@ -437,7 +455,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_age",
                          label = "Person 1 Age:",
-                         value = 25,
+                         value = 30,
                          min = 18,
                          max = 120,
                          step = 1
@@ -445,7 +463,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_salary",
                          label = "Person 1 Salary ($):",
-                         value = 65000,
+                         value = 81224,
                          min = 1000,
                          max = 1000000,
                          step = 1
@@ -461,7 +479,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_emp_match",
                          label = "Employer Matching (%):",
-                         value = 5,
+                         value = 7,
                          min = 0,
                          max = 100,
                          step = 0.5
@@ -469,7 +487,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_emp_contrib",
                          label = "401k Employee Contributions ($):",
-                         value = 7000,
+                         value = 24500,
                          min = 0,
                          max = calculate_limits(75)$lim401k50,
                          step = 1
@@ -485,7 +503,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_roth",
                          label = "Annual Roth Contrib ($):",
-                         value = 7000,
+                         value = 7500,
                          min = 0,
                          max = calculate_limits(75)$limrothira50,
                          step = 0.1
@@ -493,7 +511,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_brokerage",
                          label = "Annual Taxable Brokerage Contrib ($):",
-                         value = 2000,
+                         value = 6000,
                          min = 0,
                          max = 50000000,
                          step = 0.1
@@ -509,7 +527,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_projections",
                          label = "Years to Project:",
-                         value = 30,
+                         value = 20,
                          min = 0,
                          max = 100,
                          step = 1
@@ -517,7 +535,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_current401k",
                          label = "Current 401k Amount ($):",
-                         value = 0,
+                         value = 57114.61,
                          min = 0,
                          max = 10000000,
                          step = 0.1
@@ -525,7 +543,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_currentroth",
                          label = "Current Roth Amount ($):",
-                         value = 14000,
+                         value = 59233.75,
                          min = 0,
                          max = 10000000,
                          step = 0.1
@@ -533,7 +551,7 @@ shinyUI(
                        numericInput(
                          inputId = "p1_currentbrokerage",
                          label = "Current Taxable Brokerage Amount ($):",
-                         value = 10000,
+                         value = 17015.88,
                          min = 0,
                          max = 100000000,
                          step = 0.1
@@ -558,7 +576,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_age",
                            label = "Person 2 Age:",
-                           value = 32,
+                           value = 43,
                            min = 18,
                            max = 120,
                            step = 1
@@ -566,7 +584,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_salary",
                            label = "Person 2 Salary ($):",
-                           value = 55000,
+                           value = 96844.80,
                            min = 1000,
                            max = 1000000,
                            step = 1
@@ -582,7 +600,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_emp_match",
                            label = "Employer Matching (%):",
-                           value = 4.5,
+                           value = 7,
                            min = 0,
                            max = 100,
                            step = 0.5
@@ -590,7 +608,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_emp_contrib",
                            label = "401k Employee Contribution ($):",
-                           value = 6000,
+                           value = 24500,
                            min = 0,
                            max = calculate_limits(75)$lim401k50,
                            step = 1
@@ -598,7 +616,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_ratereturn",
                            label = "Rate of Return (%):",
-                           value = 6,
+                           value = 7,
                            min = 0,
                            max = 1000,
                            step = 0.1
@@ -606,7 +624,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_roth",
                            label = "Annual Roth Contrib ($):",
-                           value = 5000,
+                           value = 7500,
                            min = 0,
                            max = calculate_limits(75)$limrothira50,
                            step = 0.1
@@ -614,7 +632,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_brokerage",
                            label = "Annual Taxable Brokerage Contrib ($):",
-                           value = 5000,
+                           value = 6000,
                            min = 0,
                            max = 50000000,
                            step = 0.1
@@ -630,7 +648,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_projections",
                            label = "Years to Project:",
-                           value = 25,
+                           value = 20,
                            min = 0,
                            max = 100,
                            step = 1
@@ -638,7 +656,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_current401k",
                            label = "Current 401k Amount ($):",
-                           value = 30000,
+                           value = 291885.52,
                            min = 0,
                            max = 10000000,
                            step = 0.1
@@ -646,7 +664,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_currentroth",
                            label = "Current Roth Amount ($):",
-                           value = 14000,
+                           value = 24995.08,
                            min = 0,
                            max = 10000000,
                            step = 0.1
@@ -654,7 +672,7 @@ shinyUI(
                          numericInput(
                            inputId = "p2_currentbrokerage",
                            label = "Current Taxable Brokerage Amount ($):",
-                           value = 8000,
+                           value = 17015.88,
                            min = 0,
                            max = 100000000,
                            step = 0.1
