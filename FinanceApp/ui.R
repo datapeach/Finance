@@ -183,7 +183,7 @@ shinyUI(
                        numericInput(
                          inputId = "take_home",
                          label = "Total Take Home ($):",
-                         value = 8719,
+                         value = 7966,
                          min = 0,
                          max = 20000,
                          step = 10,
