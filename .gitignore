@@ -5,4 +5,5 @@
 .DS_Store
 FinanceApp/rsconnect/
 FinanceApp/defaults_local.R
+default_local.R
 deploy_walkthrough.txt
