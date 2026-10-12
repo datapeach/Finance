@@ -7,6 +7,7 @@ source("global.R") # Load global variables
 source("budgetfunc.R") # Compute budget outputs for pie chart and table
 source("investfunc.R") # Compute investment outputs for DT tbl
 source("retirementgrowthfunc.R") # Compute the retirement growth for the table and plot
+source("montecarlofunc.R") # VPW Monte Carlo simulations
 
 # Server function ----
 function(input, output, session) {
@@ -40,7 +41,6 @@ function(input, output, session) {
     p1_roth = 0,
     p1_brokerage = 0,
     p1_hsa = 0,
-    p1_projections = 0,
     p1_current401k = 0,
     p1_currentroth = 0,
     p1_currentbrokerage = 0,
@@ -52,7 +52,6 @@ function(input, output, session) {
     p2_roth = 0,
     p2_brokerage = 0,
     p2_hsa = 0,
-    p2_projections = 0,
     p2_current401k = 0,
     p2_currentroth = 0,
     p2_currentbrokerage = 0,
@@ -67,7 +66,7 @@ function(input, output, session) {
     rv$car_payment   <- input$car_payment
     rv$groceries     <- input$groceries
     rv$home_ins      <- input$home_ins
-    rv$home_maint    <- input$car_maint
+    rv$home_maint    <- input$home_maint
     rv$car_ins       <- input$car_ins
     rv$car_maint     <- input$car_maint
     rv$utilities     <- input$utilities
@@ -88,7 +87,6 @@ function(input, output, session) {
     rv$p1_roth             <- input$p1_roth
     rv$p1_brokerage        <- input$p1_brokerage
     rv$p1_hsa              <- input$p1_hsa
-    rv$p1_projections      <- input$p1_projections
     rv$p1_current401k      <- input$p1_current401k
     rv$p1_currentroth      <- input$p1_currentroth
     rv$p1_currentbrokerage <- input$p1_currentbrokerage
@@ -101,7 +99,6 @@ function(input, output, session) {
     rv$p2_roth             <- input$p2_roth
     rv$p2_brokerage        <- input$p2_brokerage
     rv$p2_hsa              <- input$p2_hsa
-    rv$p2_projections      <- input$p2_projections
     rv$p2_current401k      <- input$p2_current401k
     rv$p2_currentroth      <- input$p2_currentroth
     rv$p2_currentbrokerage <- input$p2_currentbrokerage
@@ -112,46 +109,108 @@ function(input, output, session) {
   
   
   # Reactive expression to create the dataframe based on reactive values for retirement growth
+  # Values stay numeric (base-year dollars); formatting happens in the table/plot
   projected_data <- reactive({
+    req(rv$p1_age, input$plan_through_age, input$p1_lastworkyear, input$withdraw_start_year, input$base_year,
+        input$anchor_year, !is.na(input$vpw_rate), !is.na(input$annual_spend),
+        !is.na(input$retire_return), !is.na(input$inflation), !is.na(input$fire_target))
     
+    # Both people share one horizon: base year through the year Person 1 reaches plan_through_age
+    projection <- input$plan_through_age - rv$p1_age + 1
+    validate(need(projection >= 2, "Plan Through Age must be at least one year above Person 1's age."))
     
     if(input$household_count == "One Person") {
       
-      df <- retirement.projection(rv$p1_projections, rv$p1_current401k,  rv$p1_currentroth,rv$p1_currentbrokerage, rv$p1_currenthsa,
+      df <- retirement.projection(projection, rv$p1_current401k,  rv$p1_currentroth,rv$p1_currentbrokerage, rv$p1_currenthsa,
                                   rv$p1_salary, rv$p1_wagegrowth, rv$p1_ratereturn,
-                                  rv$p1_age, rv$p1_emp_match, rv$p1_emp_contrib, rv$p1_roth, rv$p1_brokerage, rv$p1_hsa)
+                                  rv$p1_age, rv$p1_emp_match, rv$p1_emp_contrib, rv$p1_roth, rv$p1_brokerage, rv$p1_hsa,
+                                  last_work_year = input$p1_lastworkyear,
+                                  start_year = input$base_year)
       
-      df[,3:10] <- lapply(df[,3:10], dollar,accuracy = 0.01)
-      
-      df
+      any_working <- df$Working
+      all_working <- df$Working
+      df <- df %>% select(-Working)
+      total <- df$Balance
       
     } else {
-      temp_df1 <- retirement.projection(rv$p1_projections, rv$p1_current401k,  rv$p1_currentroth, rv$p1_currentbrokerage, rv$p1_currenthsa,
+      req(rv$p2_age, input$p2_lastworkyear)
+      temp_df1 <- retirement.projection(projection, rv$p1_current401k,  rv$p1_currentroth, rv$p1_currentbrokerage, rv$p1_currenthsa,
                                         rv$p1_salary, rv$p1_wagegrowth, rv$p1_ratereturn,
-                                        rv$p1_age, rv$p1_emp_match, rv$p1_emp_contrib, rv$p1_roth, rv$p1_brokerage, rv$p1_hsa)
+                                        rv$p1_age, rv$p1_emp_match, rv$p1_emp_contrib, rv$p1_roth, rv$p1_brokerage, rv$p1_hsa,
+                                        last_work_year = input$p1_lastworkyear,
+                                        spouse_last_work_year = input$p2_lastworkyear,
+                                        spousal_roth = input$spousal_roth,
+                                        start_year = input$base_year)
       
-      temp_df2 <- retirement.projection(rv$p2_projections, rv$p2_current401k,  rv$p2_currentroth, rv$p2_currentbrokerage, rv$p2_currenthsa,
+      temp_df2 <- retirement.projection(projection, rv$p2_current401k,  rv$p2_currentroth, rv$p2_currentbrokerage, rv$p2_currenthsa,
                                         rv$p2_salary, rv$p2_wagegrowth, rv$p2_ratereturn,
-                                        rv$p2_age, rv$p2_emp_match, rv$p2_emp_contrib, rv$p2_roth, rv$p2_brokerage, rv$p2_hsa)
+                                        rv$p2_age, rv$p2_emp_match, rv$p2_emp_contrib, rv$p2_roth, rv$p2_brokerage, rv$p2_hsa,
+                                        last_work_year = input$p2_lastworkyear,
+                                        spouse_last_work_year = input$p1_lastworkyear,
+                                        spousal_roth = input$spousal_roth,
+                                        start_year = input$base_year)
       
-      names(temp_df1)[2:10] <- paste("p1_", names(temp_df1)[2:10], sep ="")
-      names(temp_df2)[2:10] <- paste("p2_", names(temp_df2)[2:10], sep ="")
-      df <- full_join(temp_df1, temp_df2, by = "Year") #need for taking larger of the two projected years in df (ie someone 24 years and someone 25)
-      
-      # case for nrows(p1) and p2 not equal length
-      for(i in 2:nrow(df)) {
-        df[i, "p1_Balance"] <-if_else(is.na(df[i,"p1_Balance"]), df[i-1, "p1_Balance"], df[i, "p1_Balance"]) 
-        df[i, "p2_Balance"] <-if_else(is.na(df[i,"p2_Balance"]), df[i-1, "p2_Balance"], df[i, "p2_Balance"]) 
-      }
+      names(temp_df1)[-1] <- paste("p1_", names(temp_df1)[-1], sep ="")
+      names(temp_df2)[-1] <- paste("p2_", names(temp_df2)[-1], sep ="")
+      df <- full_join(temp_df1, temp_df2, by = "Year")
       
       df$`Total Balance` <- df$p1_Balance + df$p2_Balance
       
-      df[,c(3:10, 12:20)] <- lapply(df[,c(3:10, 12:20)], dollar,accuracy = 0.01)
-      
-      df
-      
+      p1_working <- df$p1_Working
+      p2_working <- df$p2_Working
+      any_working <- p1_working | p2_working
+      all_working <- p1_working & p2_working
+      df <- df %>% select(-p1_Working, -p2_Working)
+      total <- df$`Total Balance`
     }
     
+    bind_cols(
+      df,
+      household.drawdown(
+        years = df$Year,
+        total_balance = total,
+        any_working = any_working,
+        all_working = all_working,
+        withdraw_start_year = input$withdraw_start_year,
+        vpw_rate = input$vpw_rate,
+        annual_spend = input$annual_spend,
+        cap_withdrawals = input$withdraw_rule == "capped",
+        retire_return = input$retire_return,
+        fire_target = input$fire_target,
+        base_year = input$base_year,
+        anchor_year = input$anchor_year,
+        inflation = input$inflation
+      )
+    )
+  })
+  
+  # Withdrawal-phase and Monte Carlo returns copy Person 1's rate, unless the user
+  # has changed them (i.e. they no longer equal the last value copied in)
+  synced_return <- reactiveVal(NULL)
+  observeEvent(input$p1_ratereturn, {
+    rate <- input$p1_ratereturn
+    req(!is.na(rate))
+    previous <- synced_return()
+    for (id in c("retire_return", "mc_mean")) {
+      if (is.null(previous) || isTRUE(all.equal(input[[id]], previous))) {
+        updateNumericInput(session, id, value = rate)
+      }
+    }
+    synced_return(rate)
+  })
+  
+  anchor_factor <- reactive({
+    (1 + input$inflation / 100)^(input$anchor_year - input$base_year)
+  })
+  
+  # Table/CSV version: dollar columns labelled with the year their dollars are in
+  labelled_projection <- reactive({
+    df <- projected_data()
+    base_cols <- intersect(c("Balance", "p1_Balance", "p2_Balance", "Total Balance", "Withdrawal",
+                             "Net Balance", "VPW Capacity"), names(df))
+    names(df)[match(base_cols, names(df))] <- paste0(base_cols, " (", input$base_year, "$)")
+    names(df) <- sub("(anchor$)", paste0("(", input$anchor_year, "$)"), names(df), fixed = TRUE)
+    df
   })
   
   # Calculating retirement limits based on age 
@@ -213,6 +272,8 @@ function(input, output, session) {
   # })  
   
   budget_data <- reactive({
+    validate(need(isTruthy(input$take_home) && input$take_home > 0,
+                  "Enter a Total Take Home amount above $0 on the Inputs tab."))
     budget.output(
       take_home     = input$take_home,
       rent_mort     = input$rent_mort,
@@ -235,18 +296,22 @@ function(input, output, session) {
   
   # Budget outputs ----
   # Reactive expression for pie chart data
+  # Pie charts can't draw negative or zero slices (e.g. Unallocated when overspending);
+  # overspending is reported in the note instead
   reactivePieData <- eventReactive(input$budgetbtn, {
     list(
       pieChart1 = budget_data() %>%
         select(c('Needs', 'Wants', 'Savings_Investing', 'Unallocated')) %>%
         pivot_longer(everything(), 
                      cols_vary = "slowest", 
-                     names_to = "Type"),
+                     names_to = "Type") %>%
+        filter(value > 0),
       pieChart2 = budget_data() %>%
         select(-c('Needs %', 'Wants %', 'Savings/Investing %', 'Needs', 'Wants', 'Savings_Investing', 'Take_Home', 'Unallocated %')) %>%
         pivot_longer(everything(), 
                      cols_vary = "slowest", 
-                     names_to = "Type")
+                     names_to = "Type") %>%
+        filter(value > 0)
     )
   })
   
@@ -261,7 +326,7 @@ function(input, output, session) {
                    type = 'pie',
                    hoverinfo = 'label+text',
                    insidetextfont = list(color = '#FFFFFF'),
-                   text = ~paste('$', value),
+                   text = ~dollar(value),
                    marker = list(colors = colors,
                                  line = list(color = '#FFFFFF', width = 1)),
                    showlegend = TRUE) %>%
@@ -282,7 +347,7 @@ function(input, output, session) {
                    type = 'pie',
                    hoverinfo = 'label+text',
                    insidetextfont = list(color = '#FFFFFF', size = 9),
-                   text = ~paste('$', value),
+                   text = ~dollar(value),
                    showlegend = TRUE) %>%
       layout(title = 'Detailed Monthly Budget Expenditures',
              xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
@@ -404,30 +469,38 @@ function(input, output, session) {
     stringsAsFactors = FALSE
   ))
   
-  # Update table when num_investments changes
+  # Update table when num_investments changes, keeping rows already filled in
   observeEvent(input$num_investments, {
     req(input$money_to_invest)  # To require money to invest to be not NA
     
     num <- as.numeric(input$num_investments)
+    existing <- investments()
+    kept <- head(existing, num)
+    new_rows <- seq_len(num - nrow(kept)) + nrow(kept)
+    if (length(new_rows) == 0) {
+      investments(kept)
+      return()
+    }
     
     temp_tbl <- data.frame(
-      `Ticker(s)` = paste0("Ticker ", seq_len(num)),  # Example placeholder names
-      `Current Shares` = rep(0, num),
-      `Current Dollars` = rep(0, num),
-      `Desired %` = rep(0, num),
-      `Shares Needed` = rep(0, num),
-      `Dollars Needed` = rep(0, num),
+      `Ticker(s)` = paste0("Ticker ", new_rows),  # Example placeholder names
+      `Current Shares` = rep(0, length(new_rows)),
+      `Current Dollars` = rep(0, length(new_rows)),
+      `Desired %` = rep(0, length(new_rows)),
+      `Shares Needed` = rep(0, length(new_rows)),
+      `Dollars Needed` = rep(0, length(new_rows)),
       stringsAsFactors = FALSE
     )
+    names(temp_tbl) <- names(existing)
     
-    investments(temp_tbl)
+    investments(rbind(kept, temp_tbl))
   })
   
-  # Capture edits made to table
+  # Capture edits made to table (DT sends edited values as text, so convert back to the column's type)
   observeEvent(input$investTbl_cell_edit, {
     info <- input$investTbl_cell_edit
     updated_data <- investments()
-    updated_data[info$row, info$col] <- info$value
+    updated_data[info$row, info$col] <- DT::coerceValue(info$value, updated_data[info$row, info$col])
     investments(updated_data)
   })
   
@@ -469,86 +542,124 @@ function(input, output, session) {
   
   # Run analysis button
   observeEvent(input$investbtn, {
+    temp_tbl = investments()
+    tickers <- trimws(temp_tbl[[1]])
+    
+    problem <- if (!isTruthy(input$money_to_invest) || input$money_to_invest < 0) {
+      "Enter a Money To Invest amount of $0 or more."
+    } else if (any(tickers == "" | grepl("^Ticker [0-9]+$", tickers))) {
+      "Replace the placeholder tickers with real ticker symbols."
+    } else if (anyDuplicated(toupper(tickers))) {
+      "Each ticker can only appear once."
+    } else if (any(is.na(temp_tbl[[2]])) || any(temp_tbl[[2]] < 0)) {
+      "Current Shares must be numbers of 0 or more."
+    } else if (any(is.na(temp_tbl[[4]])) || abs(sum(temp_tbl[[4]]) - 100) > 0.01) {
+      paste0("Desired % must add up to 100 (currently ", round(sum(temp_tbl[[4]], na.rm = TRUE), 2), ").")
+    }
+    if (!is.null(problem)) {
+      showNotification(problem, type = "error", duration = 8)
+      return()
+    }
     
     shinyjs::show("loading_spinner")
-    temp_tbl = investments()
+    on.exit(shinyjs::hide("loading_spinner"))
     
-    #create a for loop going through each of my 'investments' in temp tbl. as it goes through, assign it as new("Investment")
-    temp_port <- new("Portfolio") 
-    list_desire <-list()
-    
-    for(i in 1:nrow(temp_tbl)){
-      temp_investment <- new("Investment")
-      temp_investment <- setTicker(temp_investment, temp_tbl[i,1])
-      temp_investment <- setShare(temp_investment, temp_tbl[i,2])
-      temp_investment <- updateSharePrice(temp_investment)
-      temp_investment <- updateTotalValue(temp_investment)
+    output_tbl <- tryCatch({
+      #create a for loop going through each of my 'investments' in temp tbl. as it goes through, assign it as new("Investment")
+      temp_port <- new("Portfolio") 
+      list_desire <-list()
       
-      temp_port <- addInvestToPortfolio(temp_port, temp_investment)
-      list_desire <-append(list_desire, temp_tbl[i,4])
+      for(i in 1:nrow(temp_tbl)){
+        temp_investment <- new("Investment")
+        temp_investment <- setTicker(temp_investment, tickers[i])
+        temp_investment <- setShare(temp_investment, as.numeric(temp_tbl[i,2]))
+        temp_investment <- updateSharePrice(temp_investment)
+        if (length(temp_investment@share_price) != 1 || is.na(temp_investment@share_price)) {
+          stop("No price found for ticker '", tickers[i], "'.")
+        }
+        temp_investment <- updateTotalValue(temp_investment)
+        
+        temp_port <- addInvestToPortfolio(temp_port, temp_investment)
+        list_desire <-append(list_desire, as.numeric(temp_tbl[i,4]))
+      }
+      temp_port <- updatePortfolio(temp_port)
+      temp_pm <- new("PortfolioManager")
+      temp_pm@portfolio = temp_port
+      temp_pm <- updateInvestPerc(temp_pm)
+      
+      temp_pm@money_to_invest <- input$money_to_invest
+      temp_pm = setDesiredInvestPerc(temp_pm, list_desire)
+      temp_pm = updateFutureNeeds(temp_pm)
+      
+      returnPortfolioManagerTable(temp_pm)
+    }, error = function(e) {
+      showNotification(paste("Analysis failed:", conditionMessage(e)), type = "error", duration = 10)
+      NULL
+    })
+    
+    if (!is.null(output_tbl)) {
+      names(output_tbl) <- names(temp_tbl)
+      investments(output_tbl)
     }
-    temp_port <- updatePortfolio(temp_port)
-    temp_pm <- new("PortfolioManager")
-    temp_pm@portfolio = temp_port
-    temp_pm <- updateInvestPerc(temp_pm)
-    
-    temp_pm@money_to_invest <- input$money_to_invest
-    temp_pm = setDesiredInvestPerc(temp_pm, list_desire)
-    temp_pm = updateFutureNeeds(temp_pm)
-    #print temp_tbl <- returnPortfolioManagerTable(temp_pm)
-    
-    output_tbl <- returnPortfolioManagerTable(temp_pm)
-    names(output_tbl) <- names(temp_tbl)
-    
-    shinyjs::hide("loading_spinner")
-    
-    investments(output_tbl)
   })
   
   
   
+  # Shared growth snapshot ----
+  # Run Analysis refreshes one snapshot so the plot and table always show the same run;
+  # it also runs once at startup so the table isn't empty
+  growth_snapshot <- reactiveVal(NULL)
+  
+  observeEvent(input$growthplotbtn, {
+    growth_snapshot(list(
+      data = projected_data(),
+      labelled = labelled_projection(),
+      household_count = input$household_count,
+      base_year = input$base_year,
+      anchor_year = input$anchor_year,
+      anchor_factor = anchor_factor(),
+      withdraw_start_year = input$withdraw_start_year,
+      withdraw_rule = input$withdraw_rule,
+      annual_spend = input$annual_spend,
+      vpw_rate = input$vpw_rate
+    ))
+  }, ignoreNULL = FALSE)
+  
   # Retirement Growth Plot ----
   # Reactive expression for retirement growth plot data
-  reactiveGrowthPlotData <- eventReactive(input$growthplotbtn, {
-    data <- projected_data()  # Get the reactive data frame
+  reactiveGrowthPlotData <- reactive({
+    snap <- req(growth_snapshot())
+    data <- snap$data
     
-    if (input$household_count == "One Person") {
-      # Convert Balance column to numeric on the fly
-      data <- data %>% mutate(Balance = as.numeric(gsub("[$,]", "", Balance)))
-      
-      p <- ggplot(data, aes(x = Year, y = Balance, group = 1, text= paste("Year: ", Year, "<br>", 
-                                                                          "Age: ", Age, "<br>",
-                                                                          "Balance: ", dollar(Balance)))) +
-        geom_line(color = "#c09bd5") +
-        scale_y_continuous(labels = scales::dollar_format()) +
-        labs(title = "Projected Balance",
-             x = "Year",
-             y = "Balance") +
-        theme_minimal()
-      
+    use_anchor <- input$plot_dollars == "anchor"
+    factor <- if (use_anchor) snap$anchor_factor else 1
+    unit <- paste0(if (use_anchor) snap$anchor_year else snap$base_year, "$")
+    
+    series <- if (snap$household_count == "One Person") {
+      c("Total" = "Balance", "Net of Withdrawals" = "Net Balance")
     } else {
-      # Convert columns to numeric on the fly for two persons scenario
-      data <- data %>%
-        mutate(p1_Balance = as.numeric(gsub("[$,]", "", p1_Balance)),
-               p2_Balance = as.numeric(gsub("[$,]", "", p2_Balance)),
-               `Total Balance` = as.numeric(gsub("[$,]", "", `Total Balance`)))
-      
-      p <- ggplot(data, aes(x = Year)) + 
-        geom_line(aes(y = p1_Balance, color = "Person 1", group = 1, text= paste("Year: ", Year, "<br>", 
-                                                                                 "P1 Age: ", p1_Age, "<br>",
-                                                                                 "P1 Balance: ", dollar(p1_Balance)))) + 
-        geom_line(aes(y = p2_Balance, color = "Person 2", group = 1, text= paste("Year: ", Year, "<br>", 
-                                                                                 "P2 Age: ", p2_Age, "<br>",
-                                                                                 "P2 Balance: ", dollar(p2_Balance)))) + 
-        geom_line(aes(y = `Total Balance`, color = "Total", group = 1, text= paste("Year: ", Year, "<br>",
-                                                                                   "Total Balance: ", dollar(`Total Balance`)))) + 
-        scale_y_continuous(labels = scales::dollar_format()) +
-        labs(title = "Projected Balance",
-             x = "Year",
-             y = "Balance",
-             color = "Household") +
-        theme_minimal()
+      c("Person 1" = "p1_Balance", "Person 2" = "p2_Balance",
+        "Total" = "Total Balance", "Net of Withdrawals" = "Net Balance")
     }
+    
+    plot_df <- data %>%
+      select(Year, all_of(series)) %>%
+      pivot_longer(-Year, names_to = "Series", values_to = "Balance") %>%
+      mutate(Balance = Balance * factor,
+             Series = factor(Series, levels = names(series)))
+    
+    p <- ggplot(plot_df, aes(x = Year, y = Balance, color = Series, group = Series,
+                             text = paste0("Year: ", Year, "<br>", Series, ": ", dollar(Balance)))) +
+      geom_line() +
+      geom_vline(xintercept = snap$withdraw_start_year, linetype = "dashed", color = "grey50") +
+      scale_color_manual(values = c("Person 1" = "#5f939a", "Person 2" = "#e0a458",
+                                    "Total" = "#c09bd5", "Net of Withdrawals" = "#6f42c1")) +
+      scale_y_continuous(labels = scales::dollar_format()) +
+      labs(title = paste0("Projected Balance (", unit, "; dashed line = first withdrawal year)"),
+           x = "Year",
+           y = paste0("Balance (", unit, ")"),
+           color = "Household") +
+      theme_minimal()
     
     ggplotly(p, tooltip = c("text"))
   })
@@ -559,41 +670,146 @@ function(input, output, session) {
   })
   
   # Reactive expression for retirement growth table data
-  reactiveGrowthTableData <- eventReactive(input$growthtablebtn, {
-    if (input$household_count == "One Person") {
-      datatable(projected_data(),
-                fillContainer = TRUE, 
-                options = list(pageLength = 50, 
-                               autoWidth = FALSE, 
-                               searching = FALSE,
-                               lengthChange = FALSE)) %>%
-        formatStyle("Balance", backgroundColor = "lightblue") %>%
-        formatStyle(columns = colnames(.$x$data), `font-size` = '12px')
-    } else {
-      datatable(projected_data(),
-                fillContainer = TRUE, 
-                options = list(pageLength = 50, 
-                               autoWidth = FALSE, 
-                               searching = FALSE,
-                               lengthChange = FALSE)) %>%
-        formatStyle("p1_Balance", backgroundColor = "lightblue") %>% 
-        formatStyle("p2_Balance", backgroundColor = "lightblue") %>%
-        formatStyle("Total Balance", backgroundColor = "lightyellow") %>%
-        formatStyle(columns = colnames(.$x$data), `font-size` = '12px')
+  reactiveGrowthTableData <- reactive({
+    snap <- req(growth_snapshot())
+    df <- snap$labelled
+    non_dollar <- c("Year", "Age", "p1_Age", "p2_Age", "Phase", "Effective Rate", "Coverage", "Hit Target")
+    dollar_cols <- setdiff(names(df), non_dollar)
+    total_col <- grep("^(Balance|Total Balance) \\(", names(df), value = TRUE)
+    net_cols <- grep("^Net Balance", names(df), value = TRUE)
+    
+    tbl <- datatable(df,
+                     fillContainer = TRUE, 
+                     rownames = FALSE,
+                     options = list(pageLength = 50, 
+                                    autoWidth = FALSE, 
+                                    scrollX = TRUE,
+                                    searching = FALSE,
+                                    lengthChange = FALSE)) %>%
+      formatCurrency(dollar_cols, digits = 0) %>%
+      formatPercentage("Effective Rate", digits = 2) %>%
+      formatRound("Coverage", digits = 2) %>%
+      formatStyle(total_col, backgroundColor = "lightyellow") %>%
+      formatStyle(net_cols, backgroundColor = "#e6dcf5") %>%
+      formatStyle("Phase", backgroundColor = styleEqual(
+        c("Saving", "Transition", "Coast", "Withdrawing"),
+        c("white", "#fff2cc", "#fce4d6", "#e2efda")))
+    
+    if (snap$household_count == "Two Person") {
+      tbl <- tbl %>% formatStyle(c(paste0("p1_Balance (", snap$base_year, "$)"),
+                                   paste0("p2_Balance (", snap$base_year, "$)")),
+                                 backgroundColor = "lightblue")
     }
+    
+    tbl %>% formatStyle(columns = names(df), `font-size` = '12px')
   })
   
   # Render the retirement growth table
   output$retireGrowthTbl <- DT::renderDataTable({
     reactiveGrowthTableData()
-  }) # End of eventReactive
+  })
   
   output$downloadbtn <- downloadHandler(
     filename = function() {
       paste("RetirementProjections-", Sys.Date(), ".csv", sep="")
     },
     content = function(file) {
-      write.csv(projected_data(), file)
+      snap <- growth_snapshot()
+      write.csv(if (is.null(snap)) labelled_projection() else snap$labelled, file, row.names = FALSE)
     }
   )
+  
+  # Monte Carlo ----
+  # Uses the same Run Analysis snapshot as the growth plot and table; starts from the
+  # projected net balance at the end of the year before withdrawals begin
+  mc_start <- reactive({
+    snap <- req(growth_snapshot())
+    df <- snap$data
+    row <- df[which.min(abs(df$Year - (snap$withdraw_start_year - 1))), ]
+    list(year = row$Year, wealth = row$`Net Balance`, snap = snap)
+  })
+  
+  output$mc_start_display <- renderText({
+    s <- mc_start()
+    paste0("Start wealth from the last Run Analysis: ", dollar(s$wealth, accuracy = 1),
+           " at end of ", s$year, " (", s$snap$base_year, "$). First simulated withdrawal year: ",
+           s$year + 1, ".")
+  })
+  
+  mc_results <- eventReactive(input$mcbtn, {
+    snap <- mc_start()$snap
+    rates <- suppressWarnings(as.numeric(strsplit(input$mc_rates, ",")[[1]]))
+    rates <- sort(unique(c(rates[!is.na(rates)], snap$vpw_rate)))
+    validate(
+      need(length(rates) > 0, "Enter at least one VPW rate."),
+      need(isTruthy(input$mc_horizon) && isTruthy(input$mc_sims), "Enter a horizon and number of simulations.")
+    )
+    
+    start <- if (isTruthy(input$mc_start_override) && input$mc_start_override > 0) {
+      input$mc_start_override
+    } else {
+      mc_start()$wealth
+    }
+    
+    withProgress(message = "Running Monte Carlo...", {
+      result <- monte.carlo.vpw(
+        start_wealth = start,
+        horizon = input$mc_horizon,
+        rates = rates,
+        floor = input$mc_floor,
+        mean_return = input$mc_mean,
+        vol = input$mc_vol,
+        n_sims = input$mc_sims,
+        spend_cap = if (snap$withdraw_rule == "capped") snap$annual_spend else NA,
+        start_year = mc_start()$year,
+        seed = input$mc_seed
+      )
+    })
+    c(result, list(base_year = snap$base_year, vpw_rate = snap$vpw_rate))
+  })
+  
+  output$mcSummaryTbl <- DT::renderDataTable({
+    summary <- mc_results()$summary
+    pct_rows <- c("Portfolio survives horizon", "Never spend below lifestyle floor",
+                  "% of all years >= lifestyle floor")
+    shown <- summary
+    for (col in names(shown)[-1]) {
+      shown[[col]] <- ifelse(summary$Metric %in% pct_rows,
+                             percent(summary[[col]], accuracy = 0.1),
+                             dollar(summary[[col]], accuracy = 1))
+    }
+    datatable(shown,
+              rownames = FALSE,
+              options = list(dom = 't', pageLength = nrow(shown), ordering = FALSE, scrollX = TRUE))
+  })
+  
+  output$mc_band_rate_ui <- renderUI({
+    res <- mc_results()
+    rates <- unique(res$bands$Rate)
+    selectInput("mc_band_rate", "Show percentile bands for VPW rate (%):",
+                choices = rates,
+                selected = if (res$vpw_rate %in% rates) res$vpw_rate else rates[1])
+  })
+  
+  output$mcBandPlot <- renderPlotly({
+    req(input$mc_band_rate)
+    res <- mc_results()
+    bands <- res$bands %>% filter(Rate == as.numeric(input$mc_band_rate))
+    
+    # Ribbon is fill only; separate lines carry the hover values (a ribbon only labels its top edge)
+    plot_ly(bands, x = ~Year) %>%
+      add_ribbons(ymin = ~P10, ymax = ~P90, name = "10th-90th percentile range",
+                  fillcolor = "rgba(192,155,213,0.35)", line = list(color = "transparent"),
+                  hoverinfo = "skip") %>%
+      add_lines(y = ~P90, name = "90th percentile", line = list(color = "#c09bd5", width = 1, dash = "dot"),
+                hovertemplate = "%{y:$,.0f}") %>%
+      add_lines(y = ~P50, name = "Median", line = list(color = "#6f42c1"),
+                hovertemplate = "%{y:$,.0f}") %>%
+      add_lines(y = ~P10, name = "10th percentile", line = list(color = "#c09bd5", width = 1, dash = "dot"),
+                hovertemplate = "%{y:$,.0f}") %>%
+      layout(title = paste0("Simulated Portfolio at ", input$mc_band_rate, "% VPW (", res$base_year, "$)"),
+             yaxis = list(title = paste0("Portfolio (", res$base_year, "$)"), tickformat = "$,.0f"),
+             xaxis = list(title = "Year"),
+             hovermode = "x unified")
+  })
 } #End of server

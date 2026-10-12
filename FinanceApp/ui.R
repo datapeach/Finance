@@ -22,7 +22,7 @@ shinyUI(
     # Sidebar ----
     dashboardSidebar(
       useShinyjs(),
-      width = 500,
+      width = 250,
       sidebarMenu(
         id = 'sidebarMenu',
         
@@ -112,7 +112,6 @@ shinyUI(
       #p1_roth-label,
       #p1_brokerage-label,
       #p1_hsa-label,
-      #p1_projections-label,
       #p2_age-label,
       #p2_salary-label,
       #p2_wagegrowth-label,
@@ -122,7 +121,6 @@ shinyUI(
       #p2_roth-label, 
       #p2_brokerage-label,
       #p2_hsa-label, 
-      #p2_projections-label,
       #p1_current401k-label, 
       #p1_currentroth-label,
       #p1_currentbrokerage-label,
@@ -130,7 +128,9 @@ shinyUI(
       #p2_current401k-label,
       #p2_currentroth-label,
       #p2_currentbrokerage-label,
-      #p2_currenthsa-label {
+      #p2_currenthsa-label,
+      #p1_lastworkyear-label,
+      #p2_lastworkyear-label {
         font-size: 0.75em;
       }
 
@@ -432,7 +432,7 @@ shinyUI(
           h2('Retirement Analysis'),
           infoBox(
             title = "Welcome to the Finance App",
-            value = "Please use the sidebar to enter number of earners in household. Next, fill out the inputs on this tab to view tax vehicle limits as well as retirement growth plot and table",
+            value = "Choose the number of earners in the sidebar, then fill out each person's inputs and the Household Plan on the Inputs tab. Click Run Analysis on Growth Plot to update the plot and table, then use the Monte Carlo tab to stress-test withdrawals.",
             icon = icon('comment-dollar'),
             color = "green",
             fill = FALSE, 
@@ -489,7 +489,7 @@ shinyUI(
                          label = "401k Employee Contributions ($):",
                          value = 24500,
                          min = 0,
-                         max = calculate_limits(75)$lim401k50,
+                         max = max_limits$lim401k50,
                          step = 1
                        ),
                        numericInput(
@@ -505,7 +505,7 @@ shinyUI(
                          label = "Annual Roth Contrib ($):",
                          value = 7500,
                          min = 0,
-                         max = calculate_limits(75)$limrothira50,
+                         max = max_limits$limrothira50,
                          step = 0.1
                        ),
                        numericInput(
@@ -521,15 +521,15 @@ shinyUI(
                          label = "Annual HSA Contrib ($):",
                          value = 0,
                          min = 0,
-                         max = calculate_limits(75)$limhsaone55,
+                         max = max_limits$limhsaone55,
                          step = 0.1
                        ),
                        numericInput(
-                         inputId = "p1_projections",
-                         label = "Years to Project:",
-                         value = 20,
-                         min = 0,
-                         max = 100,
+                         inputId = "p1_lastworkyear",
+                         label = "Last Working Year (contributions stop after):",
+                         value = 2038,
+                         min = 2000,
+                         max = 2150,
                          step = 1
                        ),
                        numericInput(
@@ -610,7 +610,7 @@ shinyUI(
                            label = "401k Employee Contribution ($):",
                            value = 24500,
                            min = 0,
-                           max = calculate_limits(75)$lim401k50,
+                           max = max_limits$lim401k50,
                            step = 1
                          ),
                          numericInput(
@@ -626,7 +626,7 @@ shinyUI(
                            label = "Annual Roth Contrib ($):",
                            value = 7500,
                            min = 0,
-                           max = calculate_limits(75)$limrothira50,
+                           max = max_limits$limrothira50,
                            step = 0.1
                          ),
                          numericInput(
@@ -642,15 +642,15 @@ shinyUI(
                            label = "Annual HSA Contrib ($):",
                            value = 0,
                            min = 0,
-                           max = calculate_limits(75)$limhsatwo55,
+                           max = max_limits$limhsatwo55,
                            step = 0.1
                          ),
                          numericInput(
-                           inputId = "p2_projections",
-                           label = "Years to Project:",
-                           value = 20,
-                           min = 0,
-                           max = 100,
+                           inputId = "p2_lastworkyear",
+                           label = "Last Working Year (contributions stop after):",
+                           value = 2037,
+                           min = 2000,
+                           max = 2150,
                            step = 1
                          ),
                          numericInput(
@@ -690,6 +690,9 @@ shinyUI(
               ), # End of fluidRow
               fluidRow(
                 hr(),
+                column(width = 12,
+                       em(limits_note)
+                ),
                 column(width = 6,
                        textOutput("limit_401k_one_display"),
                        textOutput("limit_roth_ira_one_catchup_display"),
@@ -700,13 +703,126 @@ shinyUI(
                        textOutput("limit_roth_ira_two_catchup_display"),
                        textOutput("limit_hsa_two_55_display")
                 )
-              ) # End of 2nd fluid row
+              ), # End of 2nd fluid row
+              fluidRow(
+                hr(),
+                column(width = 12,
+                       infoBox("", "Household Plan (balances are in base-year dollars; returns are real)",
+                               icon = icon("house"),
+                               width = 12,
+                               color = "purple"
+                       )
+                ),
+                column(width = 4,
+                       numericInput(
+                         inputId = "base_year",
+                         label = "Base Year (present $; projection starts here, opening balances are the year before):",
+                         value = current_year,
+                         min = 2000,
+                         max = 2150,
+                         step = 1
+                       ),
+                       numericInput(
+                         inputId = "plan_through_age",
+                         label = "Plan Through Age (Person 1):",
+                         value = 95,
+                         min = 19,
+                         max = 120,
+                         step = 1
+                       ),
+                       numericInput(
+                         inputId = "anchor_year",
+                         label = "Future Value Year (e.g. 2040$):",
+                         value = 2040,
+                         min = 2000,
+                         max = 2150,
+                         step = 1
+                       ),
+                       numericInput(
+                         inputId = "inflation",
+                         label = "Inflation (%) for future value columns:",
+                         value = 3,
+                         min = 0,
+                         max = 20,
+                         step = 0.1
+                       )
+                ),
+                column(width = 4,
+                       numericInput(
+                         inputId = "withdraw_start_year",
+                         label = "First Withdrawal Year:",
+                         value = 2040,
+                         min = 2000,
+                         max = 2150,
+                         step = 1
+                       ),
+                       numericInput(
+                         inputId = "vpw_rate",
+                         label = "VPW Withdrawal Rate (% of portfolio):",
+                         value = 3,
+                         min = 0,
+                         max = 20,
+                         step = 0.1
+                       ),
+                       numericInput(
+                         inputId = "annual_spend",
+                         label = "Annual Spend ($, base-year):",
+                         value = 90000,
+                         min = 0,
+                         max = 10000000,
+                         step = 1000
+                       ),
+                       radioButtons(
+                         inputId = "withdraw_rule",
+                         label = "Withdrawal Rule:",
+                         choices = c("VPW capped at annual spend" = "capped",
+                                     "Full VPW (spend the whole %)" = "full"),
+                         selected = "capped"
+                       )
+                ),
+                column(width = 4,
+                       numericInput(
+                         inputId = "retire_return",
+                         label = "Real Return During Withdrawals (%; follows Person 1's rate until changed):",
+                         value = 7,
+                         min = -10,
+                         max = 20,
+                         step = 0.1
+                       ),
+                       numericInput(
+                         inputId = "fire_target",
+                         label = "FIRE Target ($, base-year):",
+                         value = 3000000,
+                         min = 0,
+                         max = 100000000,
+                         step = 10000
+                       ),
+                       conditionalPanel(
+                         condition = "input.household_count == 'Two Person'",
+                         checkboxInput(
+                           inputId = "spousal_roth",
+                           label = "Retired spouse keeps Roth contributions while the other still works (spousal Roth)",
+                           value = TRUE
+                         )
+                       )
+                )
+              ) # End of plan fluid row
             ), # End Inputs Tab Panel
             
             tabPanel(
               title = strong('Growth Plot'),
               fluidRow(
-                column(width = 12, offset = 6,
+                column(width = 6,
+                       radioButtons(
+                         inputId = "plot_dollars",
+                         label = "Dollars shown:",
+                         choices = c("Base year (present $)" = "base",
+                                     "Future value year" = "anchor"),
+                         selected = "base",
+                         inline = TRUE
+                       )
+                ),
+                column(width = 6,
                        actionButton(
                          inputId = "growthplotbtn",
                          label = "Run Analysis"
@@ -721,11 +837,8 @@ shinyUI(
             tabPanel(
               title = strong('Growth Table'),
               fluidRow(
-                column(width = 12, offset = 2,
-                       actionButton(
-                         inputId = "growthtablebtn",
-                         label = "Show Table"
-                       )
+                column(width = 12,
+                       p("Shows the same run as the Growth Plot. Click Run Analysis on the Growth Plot tab after changing inputs.")
                 )
               ),
               fluidRow(
@@ -739,7 +852,105 @@ shinyUI(
                        )
                 )
               ) # End Fluid Row
-            ) # End Growth Table Tab Panel
+            ), # End Growth Table Tab Panel
+            
+            tabPanel(
+              title = strong('Monte Carlo'),
+              fluidRow(
+                column(width = 12,
+                       p("Variable percentage withdrawal (VPW) simulation in base-year dollars with real returns. ",
+                         "Start wealth, withdrawal rule, and annual spend come from the last Run Analysis on the Growth Plot tab."),
+                       textOutput("mc_start_display")
+                )
+              ),
+              fluidRow(
+                column(width = 4,
+                       numericInput(
+                         inputId = "mc_start_override",
+                         label = "Start Wealth Override ($, 0 = use projection):",
+                         value = 0,
+                         min = 0,
+                         max = 1e9,
+                         step = 10000
+                       ),
+                       numericInput(
+                         inputId = "mc_horizon",
+                         label = "Horizon (years):",
+                         value = 50,
+                         min = 1,
+                         max = 100,
+                         step = 1
+                       ),
+                       textInput(
+                         inputId = "mc_rates",
+                         label = "VPW Rates to Compare (%):",
+                         value = "3, 3.5, 4, 4.5, 5, 5.5"
+                       )
+                ),
+                column(width = 4,
+                       numericInput(
+                         inputId = "mc_floor",
+                         label = "Lifestyle Floor ($, base-year):",
+                         value = 90000,
+                         min = 0,
+                         max = 10000000,
+                         step = 1000
+                       ),
+                       numericInput(
+                         inputId = "mc_mean",
+                         label = "Mean Real Return (%; follows Person 1's rate until changed):",
+                         value = 7,
+                         min = -10,
+                         max = 20,
+                         step = 0.1
+                       ),
+                       numericInput(
+                         inputId = "mc_vol",
+                         label = "Volatility (% std dev):",
+                         value = 16,
+                         min = 0,
+                         max = 60,
+                         step = 0.5
+                       )
+                ),
+                column(width = 4,
+                       numericInput(
+                         inputId = "mc_sims",
+                         label = "Simulations:",
+                         value = 10000,
+                         min = 100,
+                         max = 100000,
+                         step = 1000
+                       ),
+                       numericInput(
+                         inputId = "mc_seed",
+                         label = "Random Seed:",
+                         value = 42,
+                         min = 1,
+                         step = 1
+                       ),
+                       actionButton(
+                         inputId = "mcbtn",
+                         label = "Run Monte Carlo"
+                       )
+                )
+              ),
+              fluidRow(
+                hr(),
+                column(width = 12,
+                       DT::dataTableOutput('mcSummaryTbl')
+                )
+              ),
+              fluidRow(
+                hr(),
+                column(width = 4,
+                       uiOutput("mc_band_rate_ui")
+                ),
+                column(width = 12,
+                       plotlyOutput('mcBandPlot', height = figure.height)
+                )
+              )
+            ) # End Monte Carlo Tab Panel
           ) # End Tab Box
         ) # End Tab Item
       ) # End Tab Items
