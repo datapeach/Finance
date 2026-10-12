@@ -2,6 +2,11 @@
 
 # Author: Rosie Schmitz
 
+# Shiny sources this file once before ui.R and server.R, so everything the app
+# needs is loaded here.
+
+source("packages.R")
+
 # Get current calendar year (IRS limits are year-based)
 current_year <- as.integer(format(Sys.Date(), "%Y"))
 
@@ -40,3 +45,20 @@ calculate_limits <- function(age) {
 
 # Highest limit any age can reach (age 61 is in every catch-up tier); used as input maximums
 max_limits <- calculate_limits(61)
+
+# UI constants
+figure.height <- '600px'
+loading.spinner.color <- "#6f42c1"
+
+source("defaults.R")
+
+# Calculations
+source("budgetfunc.R")
+source("investfunc.R")
+source("retirementgrowthfunc.R")
+source("montecarlofunc.R")
+
+# One Shiny module per tab
+source("modules/mod_budget.R")
+source("modules/mod_invest.R")
+source("modules/mod_retirement.R")

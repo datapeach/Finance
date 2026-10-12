@@ -81,12 +81,13 @@ setClass(
   )
 )
 
-# Define a function to update all investments 
-setGeneric("updatePortfolio", function(x) standardGeneric("updatePortfolio"))
+# Define a function to update all investments; refresh = FALSE re-totals with the
+# prices already fetched instead of requesting new quotes
+setGeneric("updatePortfolio", function(x, ...) standardGeneric("updatePortfolio"))
 
-setMethod("updatePortfolio", "Portfolio", function(x){
+setMethod("updatePortfolio", "Portfolio", function(x, refresh = TRUE){
   for (i in 1:length(x@investment_list)) {
-    x@investment_list[[i]] <- updateSharePrice(x@investment_list[[i]])
+    if (refresh) x@investment_list[[i]] <- updateSharePrice(x@investment_list[[i]])
     x@investment_list[[i]] <- updateTotalValue(x@investment_list[[i]])
   }
   
@@ -217,7 +218,7 @@ setMethod("setMoneyInvest", "PortfolioManager", function(x, user_money){
 setGeneric("updateInvestPerc", function(x) standardGeneric("updateInvestPerc"))
 
 setMethod("updateInvestPerc", "PortfolioManager", function(x){
-  p = updatePortfolio(x@portfolio)
+  p = updatePortfolio(x@portfolio, refresh = FALSE)
   ttl_val = p@ttl_value
   temp_list = list()
   for (investment in p@investment_list) {
@@ -245,7 +246,7 @@ setMethod("updateFutureNeeds", "PortfolioManager", function(x){
  #basically get total pool of money plus extra money I want to invest then I basically get dollars needed then shares
   dollar_temp = list() #this is for dollars needed
   shares_temp = list() #this is for shares needed
-  p = updatePortfolio(x@portfolio)
+  p = updatePortfolio(x@portfolio, refresh = FALSE)
   target_value = p@ttl_value + x@money_to_invest #denominator for everything
   
   cnt = 1
@@ -269,7 +270,7 @@ setMethod("updateFutureNeeds", "PortfolioManager", function(x){
 setGeneric("returnPortfolioManagerTable", function(x) standardGeneric("returnPortfolioManagerTable"))
 
 setMethod("returnPortfolioManagerTable", "PortfolioManager", function(x){
-  p = updatePortfolio(x@portfolio)
+  p = updatePortfolio(x@portfolio, refresh = FALSE)
   ticker_list = list()
   shares_list = list()
   dollars_list = list()
