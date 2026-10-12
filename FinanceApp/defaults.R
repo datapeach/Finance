@@ -4,6 +4,7 @@
 
 # Generic starting values for every input. Personal numbers go in defaults_local.R
 # (git-ignored), which overrides these when it exists.
+# Set FINANCE_LOCAL_DEFAULTS=false to skip defaults_local.R and see the generic values.
 
 app_defaults <- list(
   budget = list(
@@ -44,4 +45,6 @@ app_defaults <- list(
   )
 )
 
-if (file.exists("defaults_local.R")) source("defaults_local.R")
+use_local_defaults <- !tolower(Sys.getenv("FINANCE_LOCAL_DEFAULTS", "true")) %in% c("false", "0", "no", "off")
+
+if (use_local_defaults && file.exists("defaults_local.R")) source("defaults_local.R")
